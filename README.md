@@ -2,16 +2,16 @@
 
 A real-time collaborative whiteboard. Draw on a shared canvas with friends over a peer-to-peer connection — no accounts, no installs beyond the app itself, just a room code.
 
-Built in Rust with [macroquad](https://github.com/not-fl3/macroquad) for rendering/input and [matchbox](https://github.com/johanhelsing/matchbox) for WebRTC peer-to-peer networking.
+Built in Rust with [macroquad](https://github.com/not-fl3/macroquad) for rendering and input handling, and [matchbox](https://github.com/johanhelsing/matchbox) for WebRTC peer-to-peer networking.
 
 ## Features
 
-- **Shared canvas** — a fixed-size (3200×2400) drawing surface everyone in a room sees identically, panned and zoomed independently per viewer.
-- **Tools** — pen, point eraser, and stroke eraser (removes whole strokes at once), each with an adjustable size.
-- **Color picker** — a quick-pick palette (defaults plus your most recently used colors) and a full hue/saturation color wheel.
-- **Undo/redo** — up to 50 steps, synced to peers so everyone converges on the same canvas.
-- **Live peer cursors** — see where everyone else in the room is pointing and what color they're about to draw with.
-- **Lobbies** — host a room to get a random 6-digit code, or join one someone shares with you. No sign-up required.
+- **Shared canvas** — A fixed-size (3200×2400) drawing surface that everyone in a room views identically, panned and zoomed independently per user.
+- **Tools** — Pen, point eraser, and stroke eraser (removes entire strokes at once), each with an adjustable size.
+- **Color picker** — A quick-pick palette (default presets plus your most recently used colors) and a full hue/saturation color wheel.
+- **Undo/redo** — Up to 50 historical steps, synchronized across peers so everyone converges on the exact same canvas state.
+- **Live peer cursors** — See where other participants in the room are pointing and the color they are currently using.
+- **Lobbies** — Host a room to generate a random 6-digit code, or join an existing room with a shared code. No registration required.
 
 ## Controls
 
@@ -31,13 +31,19 @@ Built in Rust with [macroquad](https://github.com/not-fl3/macroquad) for renderi
 
 ## Running from source
 
-Requires a [Rust toolchain](https://rustup.rs/).
+Requires a [Rust toolchain](https://rustup.rs/). On Linux, you will also need system libraries for windowing, graphics, and audio:
+
+```bash
+sudo apt install pkg-config libx11-dev libxi-dev libgl1-mesa-dev libasound2-dev
+```
+
+Run the application with:
 
 ```bash
 cargo run --release
 ```
 
-By default the app connects to a public signaling server for matchmaking. To point it at your own instead, set `OS_PAINT_SIGNALING_SERVER` before launching:
+By default, the app connects to a public signaling server (`wss://matchbox-8uwy.onrender.com`) for matchmaking. To use a custom signaling server instead, set the `OS_PAINT_SIGNALING_SERVER` environment variable before launching:
 
 ```bash
 OS_PAINT_SIGNALING_SERVER=wss://your-signaling-server.example {your binary}
@@ -45,25 +51,29 @@ OS_PAINT_SIGNALING_SERVER=wss://your-signaling-server.example {your binary}
 
 ## Prebuilt binaries
 
-Every push builds Windows, macOS, and Linux binaries via GitHub Actions (see [.github/workflows/build.yml](.github/workflows/build.yml)); grab them from that workflow's run artifacts, or from the [latest release](../../releases/tag/latest), which is republished automatically on every push to `master`.
+Every push builds Windows, macOS, and Linux binaries via GitHub Actions (see [.github/workflows/build.yml](.github/workflows/build.yml)). You can download them directly from the workflow run artifacts or from the [latest release](../../releases/tag/latest), which is updated automatically on every push to `master`.
 
 ## Project layout
 
 | File | Responsibility |
 |---|---|
-| [src/main.rs](src/main.rs) | App loop: state, input dispatch, undo/redo, lobby lifecycle |
-| [src/canvas.rs](src/canvas.rs) | Canvas dimensions, pan/zoom clamping, screen↔canvas coordinate mapping |
+| [src/main.rs](src/main.rs) | Application loop: state, input dispatch, undo/redo, lobby lifecycle |
+| [src/canvas.rs](src/canvas.rs) | Canvas dimensions, pan/zoom clamping, and screen↔canvas coordinate mapping |
 | [src/stroke.rs](src/stroke.rs) | `Stroke` and `Tool` types |
-| [src/input.rs](src/input.rs) | Mouse/keyboard handling for drawing, erasing, panning, zooming |
-| [src/render.rs](src/render.rs) | Drawing strokes, the canvas border, and peer cursors to screen |
-| [src/ui.rs](src/ui.rs) | Toolbar, size slider, color wheel, and their icons |
-| [src/menu.rs](src/menu.rs) | Pause menu: host/join/leave a lobby |
-| [src/network.rs](src/network.rs) | Packet types and WebRTC peer sync (strokes, erases, snapshots, cursors) |
+| [src/input.rs](src/input.rs) | Mouse and keyboard handling for drawing, erasing, panning, and zooming |
+| [src/render.rs](src/render.rs) | Rendering strokes, canvas borders, and peer cursors to the screen |
+| [src/ui.rs](src/ui.rs) | Toolbar, size slider, color wheel, and UI icons |
+| [src/menu.rs](src/menu.rs) | Pause menu: host, join, and leave lobbies |
+| [src/network.rs](src/network.rs) | Packet definitions and WebRTC peer sync (strokes, erases, snapshots, cursors) |
 
 ## How networking works
 
-Rooms are just everyone who connects to the signaling server with the same 6-digit code — there's no dedicated game server holding state. Each peer:
+Rooms consist of all peers connected to the signaling server with the same 6-digit code — there is no dedicated central game server storing state. Each peer:
 
-- Broadcasts individual draw/erase actions to connected peers as they happen.
-- Sends a full canvas snapshot to any newly-joined peer, and periodically (every 30s) to all peers, so late joiners and anyone who missed a packet converge on the same canvas.
-- Resolves conflicting snapshots by revision number, always keeping the newer one.
+- Broadcasts individual draw and erase actions to connected peers in real time.
+- Sends a full canvas snapshot to any newly joined peer, as well as periodically (every 30 seconds) to all peers, ensuring late joiners and dropped packets converge on the same canvas state.
+- Resolves snapshot conflicts by revision number, always keeping the newest state.
+
+## License
+
+MIT — see [LICENSE](LICENSE).
